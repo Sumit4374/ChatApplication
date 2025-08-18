@@ -114,6 +114,16 @@ class ApiService {
         });
     }
 
+    async getUnread(username) {
+        if (!username) return [];
+        return this.request(`/unread/${encodeURIComponent(username)}`);
+    }
+
+    async markAsRead(messageId) {
+        if (!messageId && messageId !== 0) return;
+        return this.request(`/markAsRead/${encodeURIComponent(messageId)}`, { method: 'post' });
+    }
+
     // Users
     async getUsers() {
         return this.request('/getAll');

@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import SocketService from '../../Services/sockets';
 import Api from '../../Services/api';
 
-export default function ChatRoom({ username = "Guest", roomId = "general", peer = null }) {
+export default function ChatRoom({ username = "Guest", roomId = "general", peer = null, onRead }) {
 	const [messages, setMessages] = useState([]);
 	const [text, setText] = useState("");
 	const [connected, setConnected] = useState(false);
@@ -34,7 +34,7 @@ export default function ChatRoom({ username = "Guest", roomId = "general", peer 
 	useEffect(() => {
 		SocketService.connect();
 		setConnected(true);
-		const unsub = SocketService.subscribeToUserMessages((msg) => {
+		const unsub = SocketService.subscribeToUserMessages(async (msg) => {
 			// msg is ChatMessages from backend
 			setMessages((m) => [...m, {
 				id: msg.id,
@@ -42,12 +42,19 @@ export default function ChatRoom({ username = "Guest", roomId = "general", peer 
 				text: msg.message,
 				timestamp: Date.parse(msg.timestamp) || Date.now(),
 			}]);
+			// If message is from current peer to me, mark as read immediately
+			try {
+				if (msg.sender === peer && msg.receiver === username) {
+					await Api.markAsRead(msg.id);
+					onRead && onRead();
+				}
+			} catch {}
 		});
 		return () => {
 			clearTimeout(typingTimeoutRef.current);
 			if (unsub) unsub();
 		};
-	}, [username]);
+	}, [username, peer, onRead]);
 
 	// auto-scroll
 	useEffect(() => {
@@ -140,4 +147,6 @@ ChatRoom.propTypes = {
 	username: PropTypes.string,
 	roomId: PropTypes.string,
 	wsUrl: PropTypes.string,
+	peer: PropTypes.string,
+	onRead: PropTypes.func,
 };

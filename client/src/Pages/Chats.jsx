@@ -10,6 +10,21 @@ export default function ChatsPage() {
 
   const [users, setUsers] = useState([]);
   const [peer, setPeer] = useState(null);
+  const [unreadMap, setUnreadMap] = useState({}); // username -> count
+
+  async function refreshUnread() {
+    if (!currentUsername) return;
+    try {
+      const unread = await Api.getUnread(currentUsername);
+      // unread is array of messages; count per sender
+      const counts = {};
+      (unread || []).forEach(m => {
+        const from = m.sender;
+        counts[from] = (counts[from] || 0) + 1;
+      });
+      setUnreadMap(counts);
+    } catch {}
+  }
 
   useEffect(() => {
     (async () => {
@@ -17,14 +32,36 @@ export default function ChatsPage() {
         const list = await Api.getUsers();
         const mapped = (list || []).map((u, i) => ({ id: u.id ?? i + 1, name: u.username, username: u.username, email: u.email }));
         setUsers(mapped);
-        if (mapped.length) {
-          // default peer: first user not equal to me
-          const defaultPeer = mapped.find(u => u.username !== currentUsername) || mapped[0];
-          setPeer(defaultPeer);
-        }
+        const defaultPeer = mapped.find(u => u.username !== currentUsername) || mapped[0];
+        setPeer(defaultPeer);
       } catch {}
     })();
   }, [currentUsername]);
+
+  useEffect(() => {
+    refreshUnread();
+    const id = setInterval(refreshUnread, 5000); // simple poll; could also update on socket receive
+    return () => clearInterval(id);
+  }, [currentUsername]);
+
+  // When opening a chat with a peer, clear unread by marking each unread message as read
+  useEffect(() => {
+    (async () => {
+      if (!currentUsername || !peer?.username) return;
+      try {
+        const unread = await Api.getUnread(currentUsername);
+        const toMark = (unread || []).filter(m => m.sender === peer.username);
+        await Promise.allSettled(toMark.map(m => Api.markAsRead(m.id)));
+        refreshUnread();
+      } catch {}
+    })();
+  }, [peer?.username, currentUsername]);
+
+  const sortedUsers = useMemo(() => {
+    const clone = [...users];
+    clone.sort((a, b) => (unreadMap[b.username] || 0) - (unreadMap[a.username] || 0));
+    return clone;
+  }, [users, unreadMap]);
 
   const meDisplay = useMemo(() => currentUsername || 'You', [currentUsername]);
 
@@ -40,10 +77,11 @@ export default function ChatsPage() {
           <aside className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="border-b border-slate-200 px-4 py-3 text-sm font-semibold">People</div>
             <UserList
-              users={users}
-              currentUserId={users.find(u => u.username === currentUsername)?.id}
+              users={sortedUsers}
+              currentUserId={sortedUsers.find(u => u.username === currentUsername)?.id}
               selectedUserId={peer?.id}
               onSelect={setPeer}
+              unreadCounts={unreadMap}
               style={{ height: 'calc(100% - 44px)' }}
             />
           </aside>

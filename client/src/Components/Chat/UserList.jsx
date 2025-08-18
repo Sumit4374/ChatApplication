@@ -10,6 +10,7 @@ export default function UserList({
 	style = {},
 	showSearch = true,
 	showPresence = true,
+	unreadCounts = {},
 }) {
 	const [query, setQuery] = useState("");
 
@@ -58,6 +59,7 @@ export default function UserList({
 						(u.name && u.name.split(" ").map((s) => s[0]).slice(0, 2).join("")) ||
 						(u.username && u.username.slice(0, 2).toUpperCase()) ||
 						"?";
+					const unread = unreadCounts[u.username] || 0;
 
 					return (
 						<div
@@ -88,6 +90,12 @@ export default function UserList({
 								</div>
 							</div>
 
+							{unread > 0 && (
+								<div className="ml-2 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-indigo-600 px-2 py-1 text-xs font-bold text-white">
+									{unread}
+								</div>
+							)}
+
 							{isMe ? <div className="text-[10px] font-medium text-emerald-700 ml-2">You</div> : null}
 						</div>
 					);
@@ -116,4 +124,5 @@ UserList.propTypes = {
 	style: PropTypes.object,
 	showSearch: PropTypes.bool,
 	showPresence: PropTypes.bool,
+	unreadCounts: PropTypes.object,
 };
