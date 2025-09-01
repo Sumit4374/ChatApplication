@@ -20,7 +20,7 @@ import jakarta.annotation.PostConstruct;
 
 @Service
 public class JWT_Service {
-private String secretKey;
+    private String secretKey;
     @Value("${jwt.secret:}")
     private String configuredSecret;
 
